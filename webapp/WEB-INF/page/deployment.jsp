@@ -39,6 +39,9 @@
         <li class="li">
             <a href="<%=basePath%>/to/deployment.do" class="nav-text">load</a>
         </li>
+        <li class="li">
+            <a href="<%=basePath%>/to/container" class="nav-text">Containers</a>
+        </li>
     </ul>
 </nav>
 <!--选择-->
@@ -100,7 +103,16 @@
                     <th>查看</th>
                 </tr>
                 </thead>
-                <tbody> </tbody>
+                <tbody>
+                    <td>加载中...</td>
+                    <td>加载中...</td>
+                    <td>加载中...</td>
+                    <td>加载中...</td>
+                    <td>加载中...</td>
+                    <td>加载中...</td>
+                    <td>加载中...</td>
+
+                </tbody>
             </table>
 
 
@@ -115,11 +127,21 @@
                                 <th>uptodate</th>
                                 <th>available</th>
                                 <th>namespace</th>
-                                <th><a href="/global/increase.do">增加pod</a></th>
-                                <th><a href="/global/decrease.do">减少pod</a></th>
+                                <th>operation(+)</th>
+                                <th>operation(-)</th>
                             </tr>
                             </thead>
-                            <tbody> </tbody>
+                            <tbody>
+                                <tr>
+                                    <td>加载中...</td>
+                                    <td>加载中...</td>
+                                    <td>加载中...</td>
+                                    <td>加载中...</td>
+                                    <td>加载中...</td>
+                                    <td>加载中...</td>
+                                    <td>加载中...</td>
+                                </tr>
+                            </tbody>
                         </table>
 
         </div>
@@ -135,12 +157,6 @@
 
         function charts1() {
             mCharts = echarts.init(document.getElementById('responseTime'), 'macarons');
-            // var xDataArr = ['7:00', '7:01', '7:02', '7:03', '7:04', '7:05', '7:06', '7:07', '7:08', '7:09',
-            //     '7:10', '7:11', '7:00', '7:01', '7:02', '7:03', '7:04', '7:05', '7:06', '7:07', '7:08', '7:09', '7:10', '7:11', '7:00', '7:01', '7:02', '7:03', '7:04', '7:05', '7:06', '7:07', '7:08', '7:09',
-            //     '7:10', '7:11', '7:00', '7:01', '7:02', '7:03', '7:04', '7:05', '7:06', '7:07', '7:08', '7:09', '7:10', '7:11']
-            // var yDataArr = [0.7, 0.83, 0.62, 0.4, 0.7, 0.65, 0.45, 0.86, 0.42, 0.74, 0.75, 0.62, 0.7, 0.83, 0.62, 0.4, 0.7, 0.65,
-            //     0.45, 0.86, 0.42, 0.74, 0.75, 0.62, 0.7, 0.83, 0.62, 0.4, 0.7, 0.65, 0.45, 0.86, 0.42, 0.74, 0.75, 0.62, 0.7, 0.83, 0.62, 0.4, 0.7, 0.65,
-            //     0.45, 0.86, 0.42, 0.74, 0.75, 0.62]
             var xDataArr = [];
             var yDataArr = [];
             var option = {
@@ -199,7 +215,7 @@
             mCharts.showLoading();
         }
 
-    }
+    };
 
     function Ajax_get_request_table(){
         $.ajax({
@@ -297,9 +313,39 @@
         });
     }
 
+    function Ajax_get_deployment_table(){
+        $.ajax({
+            type:"GET",
+            dataType:"json",
+            url: '<%=basePath%>/global/getDeploymentList.do',
+            async:true,
+            contentType: 'application/json;charset=utf-8',
+            success:function(data){
+                let deploymentList = eval(data);
+                var tbody=$('<tbody></tbody>');
+                $(deploymentList).each(function (index){
+                    var val=deploymentList[index];
+                    var tr=$('<tr></tr>');
+                    tr.append(
+                        '<td>'+ val.name + '</td>' +
+                        '<td>'+ val.ready + '</td>' +
+                        '<td>'+ val.upToData + '</td>' +
+                        '<td>'+ val.available + '</td>'+
+                        '<td>'+ val.namespace + '</td>'+
+                        '<td><a href="<%=basePath%>/global/increase.do?name='+ val.name + '&num=' + val.upToData +'&namespace='+val.namespace+'">增加pod</a></td>' +
+                        '<td><a href="<%=basePath%>/global/decrease.do?name='+ val.name + '&num=' + val.upToData +'&namespace='+val.namespace+'">减少pod</a></td>'
+                    );
+                    tbody.append(tr);
+                });
+                $('#deploymentTable tbody').replaceWith(tbody);
+            }
+        });
+    }
+
     //设置ajax轮询
     $(function(){
-        setInterval(Ajax_get_request_table,3000);
+        setInterval(Ajax_get_request_table,5000);
+        setInterval(Ajax_get_deployment_table,5000);
     })
 
 </script>

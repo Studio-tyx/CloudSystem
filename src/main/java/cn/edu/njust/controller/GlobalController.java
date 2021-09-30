@@ -1,6 +1,7 @@
 package cn.edu.njust.controller;
 
 import cn.edu.njust.entity.*;
+import cn.edu.njust.entity.Deployment;
 import cn.edu.njust.service.InfoService;
 import cn.edu.njust.service.LogService;
 import cn.edu.njust.utils.MainUtils;
@@ -42,6 +43,11 @@ public class GlobalController {
 
     GlobalController() throws IOException {infoService = new InfoService(MainUtils.KUBE_CONFIG_PATH);}
 
+    /**
+     * 关于rubis-deployment的请求列表信息Ajax接口
+     * @param model
+     * @return
+     */
     @RequestMapping(value = "/requestList")
     public  @ResponseBody HashMap<Object, Object>  getRequestList(Model model){
         List<Request> requestList = LogService.getRequests();
@@ -109,6 +115,13 @@ public class GlobalController {
         return map;
     }
 
+    /**
+     * node.jsp页面通过Ajax刷新的请求
+     * @param model
+     * @param session
+     * @return
+     * @throws ApiException
+     */
     @RequestMapping(value = "/nodeInfoUpdate")
     public @ResponseBody Map<Object,Object> NodeInfoUpdate(Model model,HttpSession session) throws ApiException {
         List<NodeInfo> nodeList = infoService.getNodeInfo();
@@ -117,7 +130,6 @@ public class GlobalController {
         assert desiredIndex != null;
         String desiredName = nodeList.get(desiredIndex).getName();
 
-        System.out.println("current desired node name  =====>"+ desiredName);
         session.setAttribute("nodeIndex",desiredIndex);
 
 //        根据session中的对应节点的对象处理该节点的数据
@@ -146,7 +158,7 @@ public class GlobalController {
         double cpuRandom = Math.random() * (maxRandom - minRandom) * 4 + minRandom * 4;
         double memRandom = Math.random() * (maxRandom - minRandom) * 2 + minRandom * 2;
         double diskRandom = Math.random() * (maxRandom - minRandom) * 1 +minRandom * 1;
-        chart1y.add(String.valueOf(currentNode.getUsage().getCPUAmount() + cpuRandom));
+        chart1y.add(String.valueOf(MainUtils.limitPrecision(currentNode.getUsage().getCPUAmount() + cpuRandom,2)));
         chart1x.add(MainUtils.getCurrentHMSTime());
         node.put("chart1y",chart1y);
         node.put("chart1x",chart1x);
@@ -162,7 +174,7 @@ public class GlobalController {
         if(chart2x == null){
             chart2x = new ArrayList<String>();
         }
-        chart2y.add(String.valueOf(currentNode.getUsage().getMemory() + memRandom));
+        chart2y.add(String.valueOf(MainUtils.limitPrecision(currentNode.getUsage().getMemory() + memRandom,2)));
         chart2x.add(MainUtils.getCurrentHMSTime());
         node.put("chart2y",chart2y);
         node.put("chart2x",chart2x);
@@ -176,7 +188,8 @@ public class GlobalController {
         if(chart3x == null){
             chart3x = new ArrayList<String>();
         }
-        chart3y.add(String.valueOf(currentNode.getUsage().getCPURatio() + cpuRandom / 20));
+        double cpuR = MainUtils.limitPrecision(currentNode.getUsage().getCPURatio() + cpuRandom / 20,2);
+        chart3y.add(String.valueOf(cpuR));
         chart3x.add(MainUtils.getCurrentHMSTime());
         node.put("chart3y",chart3y);
         node.put("chart3x",chart3x);
@@ -190,13 +203,11 @@ public class GlobalController {
         if(chart4x == null){
             chart4x = new ArrayList<String>();
         }
-        chart4y.add(String.valueOf(currentNode.getUsage().getMemoryRatio() + memRandom / (currentNode.getUsage().getMemoryRatio()>20?5:20)));
+        double memR = MainUtils.limitPrecision(currentNode.getUsage().getMemoryRatio() + memRandom / (currentNode.getUsage().getMemoryRatio()>20?5:20),2);
+        chart4y.add(String.valueOf(memR));
         chart4x.add(MainUtils.getCurrentHMSTime());
         node.put("chart4y",chart4y);
         node.put("chart4x",chart4x);
-
-//        图6相关内容：CPU需求量
-//        double chart6 = currentNode.getUsage().get;
 
 
 //      图8相关内容：DISK使用量
@@ -208,7 +219,7 @@ public class GlobalController {
         if(chart8x == null){
             chart8x = new ArrayList<String>();
         }
-        chart8y.add(String.valueOf(currentNode.getUsage().getDisk() + diskRandom));
+        chart8y.add(String.valueOf(MainUtils.limitPrecision(currentNode.getUsage().getDisk() + diskRandom,2)));
         chart8x.add(MainUtils.getCurrentHMSTime());
         node.put("chart8y",chart8y);
         node.put("chart8x",chart8x);
@@ -222,10 +233,32 @@ public class GlobalController {
         if(chart9x == null){
             chart9x = new ArrayList<String>();
         }
-        chart9y.add(String.valueOf(currentNode.getUsage().getDiskRatio() + diskRandom / 500));
+        chart9y.add(String.valueOf(MainUtils.limitPrecision(currentNode.getUsage().getDiskRatio() + diskRandom / 500,2)));
         chart9x.add(MainUtils.getCurrentHMSTime());
         node.put("chart9y",chart9y);
         node.put("chart9x",chart9x);
+
+//        图5：pod使用情况
+        Map<Object,Object> chart5 = (Map<Object, Object>)node.get("chart5");
+        List<PodInfo> listOfPods = (List<PodInfo>)infoService.getPodInfo(MainUtils.CONTAIN_3_NODES).get("forNode" + (desiredIndex + 1));
+        int runningNum = 0,pendingNum = 0,othersNum = 0;
+        for(PodInfo pod :listOfPods){
+            if(pod.getStatus().equalsIgnoreCase("Running"))runningNum ++ ;
+            else if(pod.getStatus().equalsIgnoreCase("Pending"))pendingNum ++ ;
+            else othersNum ++ ;
+        }
+        if(chart5 == null){
+            chart5 = new HashMap<Object, Object>();
+        }
+        chart5.put("running",runningNum);
+        chart5.put("pending",pendingNum);
+        chart5.put("others",othersNum);
+        node.put("chart5",chart5);
+
+//      图6: cpu request
+        node.put("chart6",cpuR);
+//        图7: mem request
+        node.put("chart7",memR);
 
 //        将对应于某节点的信息存到session中，保持本次观察时间内可重复取用
         session.setAttribute(desiredName,node);
@@ -291,8 +324,43 @@ public class GlobalController {
         return podPage;
     }
 
+
     @RequestMapping(value = "/increase")
-    public String increase(Model model,HttpSession session){
-        return "redirect: /to/index.do";
+    public String increase(@RequestParam String name,@RequestParam int num,@RequestParam String namespace){
+//        String name = "rubis-deployment";
+        System.out.println(name+" "+num+" "+namespace);
+        infoService.changeDeploymentReplicas(namespace,name,num + 1);
+        return "redirect: toload.do";
     }
+
+    @RequestMapping(value = "/decrease")
+    public String decrease(@RequestParam String name,@RequestParam int num,@RequestParam String namespace){
+//        String name = "rubis-deployment";
+        if(num > 1){
+            infoService.changeDeploymentReplicas(namespace,name,num - 1);
+        }
+        return "redirect: toload.do";
+    }
+
+    @RequestMapping(value = "/toload")
+    public String toload(){
+        return "page/load";
+    }
+
+    /**
+     * Ajax请求获取所有deployment
+     * @param model
+     * @param session
+     * @return
+     */
+    @RequestMapping(value = "/getDeploymentList")
+    public @ResponseBody List<Deployment> getDeployment(Model model,HttpSession session){
+        return infoService.getAllDeploymentInfo();
+    }
+
+    @RequestMapping(value = "/getContainerTable")
+    public @ResponseBody List<ContainerInfo> getContainerTable(Model model,HttpSession session) throws ApiException {
+        return infoService.getContainerInfo();
+    }
+
 }
